@@ -1,11 +1,36 @@
+const CustomAPIError = require('../errors/custom-error')
+const jwt = require('jsonwebtoken')
+require('dotenv').config()
 
 const login = async (req, res) => {
-  res.send('Fake Login/Register/')
+  const { username, password } = req.body
+  if (!username || !password) {
+    throw new CustomAPIError('Please provide username and password', 400)
+  }
+
+  // normally provided by DB
+  const id = new Date().getDate()
+
+  const token = jwt.sign({ id, username }, process.env.JWT_SECRET, { expiresIn: '30d' })
+
+  res.status(200).json({ msg: 'User created', token })
 }
 
 const dashboard = async (req, res) => {
-  const luckyNumber = Math.floor(Math.random * 100)
-  res.status(200).json({ msg: `Hello Amy!`, secret: `Here is your lucky number ${luckyNumber}` })
+  const authHeader = req.headers.authorization
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    throw new CustomAPIError('No token provided', 401)
+  }
+
+  const token = authHeader.split(' ')[1]
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    const luckyNumber = Math.floor(Math.random() * 100)
+    res.status(200).json({ msg: `Hello ${decoded.username}!`, secret: `Here is your lucky number ${luckyNumber}` })
+  } catch (error) {
+    throw CustomAPIError('You are not authorized to visit this route', 401)
+  }
+
 }
 
 module.exports = { login, dashboard }
